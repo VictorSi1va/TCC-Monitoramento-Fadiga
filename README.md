@@ -1,6 +1,6 @@
 # 💤 Bocejos LSTM – Detecção de Sonolência com LSTM
 
-![GIF](./documentos/GIF_GITHUB.gif)
+![GIF](https://raw.githubusercontent.com/VictorSi1va/TCC-Monitoramento-Fadiga/main/bocejos-lstm-detection-main/documentos/GIF_GITHUB.gif)
 
 ## 🛠️ Tecnologias Utilizadas
 
@@ -145,11 +145,11 @@ Testamos dois modelos: um usando apenas pontos faciais e outro incluindo também
 
 - **Modelo sem mãos:**
 
-  ![Sem mãos](./documentos/lstm_euclidean_normalized.png)
+![GIF](https://raw.githubusercontent.com/VictorSi1va/TCC-Monitoramento-Fadiga/main/bocejos-lstm-detection-main/documentos/lstm_euclidean_normalized.png)
 
 - **Modelo com mãos:**
 
-  ![Com mãos](./documentos/lstm_hands_euclidean_normalized.png)
+![GIF](https://raw.githubusercontent.com/VictorSi1va/TCC-Monitoramento-Fadiga/main/bocejos-lstm-detection-main/documentos/lstm_hands_euclidean_normalized.png)
 
 Ambos foram treinados com ~86.000 frames (20% para teste). O modelo sem mãos teve um equilíbrio melhor entre precisão e recall, especialmente para a classe "Bocejando", que era a mais sensível a erros.
 
