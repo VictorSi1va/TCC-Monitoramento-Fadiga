@@ -1,0 +1,15 @@
+conda create -n lstm_env python=3.9 -y
+conda activate lstm_env
+
+pip install -r requirements.txt
+
+
+
+
+----------------------------------------
+
+
+conda create -n lstm_env_onnx python=3.9 -y
+conda activate lstm_env_onnx
+
+pip install -r requirements_onnx.txt

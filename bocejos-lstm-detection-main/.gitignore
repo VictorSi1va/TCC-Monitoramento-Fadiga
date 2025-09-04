@@ -1,0 +1,7 @@
+.spyproject
+__pycache__
+.env
+create_labels/__pycache__
+create_labels/datasets/FL3D - Kaggle/
+create_labels/datasets/Videos Fadiga/
+create_labels/jsons

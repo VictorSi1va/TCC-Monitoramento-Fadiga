@@ -1,0 +1,9 @@
+tensorflow
+numpy
+scikit-learn
+matplotlib
+opencv-python
+mediapipe
+tqdm
+
+onnxruntime

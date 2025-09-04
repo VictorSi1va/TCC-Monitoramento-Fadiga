@@ -1,0 +1,5 @@
+Olhos fechando por tempo prolongado --> microsleep - 2
+
+Boca se abrindo com expressão clara --> yawning - 1
+
+Olhos abertos e postura estável --> alert - 0
