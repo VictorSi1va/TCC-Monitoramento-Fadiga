@@ -9,6 +9,7 @@ from tensorflow.keras.layers import LSTM, Dense, Masking
 from tensorflow.keras.callbacks import EarlyStopping
 import tensorflow as tf
 from collections import Counter
+import os
 
 # ========== Parâmetros ==========
 WINDOW_SIZE = 45
@@ -68,31 +69,31 @@ def frame_to_features(frame):
 # train_ids, test_ids = train_test_split(video_ids, test_size=0.2, random_state=42)
 
 
-
-
-
-
-
 # ========== Intervals-only: trechos específicos de vídeos para TREINO ==========
 # Formato: { video_id: [ ((m_ini, s_ini), (m_fim, s_fim)), ... ] }
 forced_train_intervals = {
-    "Expressoes-faciais-falando-1_keypoints_1_euclidean_normalized2": [
-        ((0, 0), (0, 20)),  # do 0:00 ao 0:20
+    "Expressoes-faciais-2_keypoints_1_euclidean_normalized2": [
+       ((0, 0), (0, 20)),  # do 0:00 ao 0:20
     ],
-    "Expressoes-faciais-1_keypoints_1_euclidean_normalized2": [
-        ((0, 0), (0, 30)),
-    ],
-    # "Expressoes-faciais-falando-1_keypoints_1_euclidean_normalized2": [
-    #     ((0, 0), (0, 20)),
-    # ],
-    "microssono-bocejo-lado-direito-1_keypoints_1_euclidean_normalized2": [
-        ((0, 0), (1, 15)),
-    ],
-    "microssono-bocejo-lado-esquerdo-1_keypoints_1_euclidean_normalized2": [
-        ((0, 0), (1, 15)),
-    ],
+    #"Expressoes-faciais-1_keypoints_1_euclidean_normalized2": [
+    #    ((0, 0), (0, 20)),
+    #],
+    #"Expressoes-faciais-falando-1_keypoints_1_euclidean_normalized2": [
+    #     ((0, 0), (1, 10)),
+    #],
+    #"microssono-bocejo-lado-direito-1_keypoints_1_euclidean_normalized2": [
+    #     ((0, 0), (0, 50)),
+    #],
+    #"microssono-bocejo-lado-esquerdo-1_keypoints_1_euclidean_normalized2": [
+    #     ((0, 0), (2, 00)),
+    #],
+    #"microssono-bocejo-lado-direito-2_keypoints_1_euclidean_normalized2": [ #DEU BOM
+    #    ((0, 0), (1, 00)),
+    #],
+    #"microssono-bocejo-lado-esquerdo-2_keypoints_1_euclidean_normalized2": [ #DEU BOM
+    #    ((0, 0), (1, 00)),
+    #],
 }
-
 
 
 # FPS usado para converter número do frame -> tempo (segundos)

@@ -6,7 +6,7 @@ import onnxruntime as ort
 
 # ==== Parâmetros ====
 WINDOW_SIZE = 45
-MODEL_PATH = "./create_labels/code/documentos/model_lstm_3_45_euclidean.onnx"
+MODEL_PATH = "./create_labels/code/documentos/model_lstm_victorv5.onnx"
 
 # ==== Inicializar MediaPipe ====
 mp_face_mesh = mp.solutions.face_mesh

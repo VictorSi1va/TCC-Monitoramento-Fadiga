@@ -92,8 +92,6 @@ conda activate lstm_env_onnx
 pip install -r requirements_onnx.txt
 ```
 
----
-
 ## 🚀 Como Usar
 
 ### 1. Extrair keypoints:
