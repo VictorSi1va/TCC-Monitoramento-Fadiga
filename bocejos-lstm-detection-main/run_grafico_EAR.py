@@ -10,7 +10,6 @@ import os
 import wave
 import struct
 import math
-import matplotlib.pyplot as plt   # NOVO: para gráfico EAR
 
 # ==== Parâmetros ====
 WINDOW_SIZE = 45
@@ -48,14 +47,15 @@ window = deque(maxlen=WINDOW_SIZE)
 # ==== SOM (Microsleep) com WAV contínuo em loop ====
 TONE_FS = 44100
 TONE_SEC = 1.0
+
 MICROSLEEP_FREQ_HZ = 1200
 MICROSLEEP_WAV = os.path.join(os.path.dirname(__file__) if "__file__" in globals() else ".", "microsleep_tone.wav")
 microsleep_playing = False
 microsleep_lock = threading.Lock()
 
-# ==== Bocejo ====
-YAWN_FREQ_1_HZ = 1700
-YAWN_FREQ_2_HZ = 2000
+# ==== Bocejo (2 apitos mais fortes: 2 tons agudos) ====
+YAWN_FREQ_1_HZ = 1700   # 1º beep (agudo)
+YAWN_FREQ_2_HZ = 2000   # 2º beep (mais agudo, mais “cortante”)
 YAWN_BEEP1_MS  = 180
 YAWN_BEEP2_MS  = 230
 YAWN_GAP_MS    = 90
@@ -77,11 +77,13 @@ def ensure_tone_wav(path, freq, fs=TONE_FS, seconds=TONE_SEC):
             wf.writeframes(struct.pack('<h', sample))
 
 def purge_sound():
+    """Libera imediatamente qualquer PlaySound pendente (Windows)."""
     try:
         winsound.PlaySound(None, winsound.SND_PURGE)
     except Exception:
         pass
 
+# === Som: Microsleep (contínuo em loop) ===
 def start_microsleep_beep():
     global microsleep_playing
     with microsleep_lock:
@@ -90,6 +92,7 @@ def start_microsleep_beep():
         ensure_tone_wav(MICROSLEEP_WAV, MICROSLEEP_FREQ_HZ, TONE_FS, TONE_SEC)
         winsound.PlaySound(MICROSLEEP_WAV, winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_LOOP)
         microsleep_playing = True
+        # prioridade: interrompe bocejo se estiver tocando
         stop_yawn_beep()
         print("[ALERTA] Microsleep detectado - apito contínuo iniciado")
 
@@ -98,11 +101,12 @@ def stop_microsleep_beep():
     with microsleep_lock:
         if not microsleep_playing:
             return
-        winsound.PlaySound(None, 0)
-        purge_sound()
+        winsound.PlaySound(None, 0)   # para loop
+        purge_sound()                 # libera device
         microsleep_playing = False
         print("[INFO] Microsleep terminou - apito parado")
 
+# === Som: Bocejo (2 beeps mais fortes) ===
 def start_yawn_beep():
     global yawn_playing
     with yawn_lock:
@@ -116,11 +120,14 @@ def start_yawn_beep():
         try:
             purge_sound()
             time.sleep(0.01)
+
             print("[ALERTA] (SOM) Bocejo -> Beep 1 (1700Hz)")
             if not yawn_stop_event.is_set():
                 winsound.Beep(YAWN_FREQ_1_HZ, YAWN_BEEP1_MS)
+
             if not yawn_stop_event.is_set():
                 time.sleep(YAWN_GAP_MS / 1000.0)
+
             print("[ALERTA] (SOM) Bocejo -> Beep 2 (2000Hz)")
             if not yawn_stop_event.is_set():
                 winsound.Beep(YAWN_FREQ_2_HZ, YAWN_BEEP2_MS)
@@ -142,6 +149,7 @@ yawn_start = None
 yawn_hold_until_release = False
 YAWN_CONFIRM_SECONDS = 4.0
 YAWN_WINDOW_SECONDS = 60.0
+
 yawn_confirms = deque(maxlen=10)
 last_yawn_alert_time = 0.0
 
@@ -151,29 +159,23 @@ cap = cv2.VideoCapture(0)
 def euclidean(p1, p2):
     return ((p1.x - p2.x)**2 + (p1.y - p2.y)**2)**0.5
 
-# ==== EAR ====
-def calculate_ear(landmarks, eye_indices):
-    A = euclidean(landmarks[eye_indices[1]], landmarks[eye_indices[5]])
-    B = euclidean(landmarks[eye_indices[2]], landmarks[eye_indices[4]])
-    C = euclidean(landmarks[eye_indices[0]], landmarks[eye_indices[3]])
-    return (A + B) / (2.0 * C) if C > 1e-6 else 0.0
+# ==== FUNÇÃO PARA EAR ====
+def eye_aspect_ratio(landmarks, eye_idx):
+    p1, p2, p3, p4, p5, p6 = [landmarks[i] for i in eye_idx[:6]]
+    vertical1 = euclidean(p2, p6)
+    vertical2 = euclidean(p3, p5)
+    horizontal = euclidean(p1, p4)
+    EAR = (vertical1 + vertical2) / (2.0 * horizontal)
+    return EAR
 
-LEFT_EYE = [33, 160, 158, 133, 153, 144]
+LEFT_EYE_IDX = [33, 160, 158, 133, 153, 144]
+RIGHT_EYE_IDX = [362, 385, 387, 263, 373, 380]
 
-# ==== Gráfico EAR ====
-plt.ion()
-fig, ax = plt.subplots()
-ear_values = []
-line, = ax.plot([], [], lw=2)
-ax.set_ylim(0, 0.5)
-ax.set_xlim(0, 100)
-ax.set_xlabel("Frames")
-ax.set_ylabel("EAR (Eye Aspect Ratio)")
-
-# ==== Loop principal ====
 left_eye_idx = 33
 right_eye_idx = 263
+
 current_label = None
+confidence = 0.0  # nível de confiabilidade
 
 while cap.isOpened():
     ret, frame = cap.read()
@@ -185,9 +187,19 @@ while cap.isOpened():
     results = face_mesh.process(rgb)
 
     keypoints = []
-    ear = 0.0
+    EAR_value = 0.0
+
     if results.multi_face_landmarks:
         landmarks = results.multi_face_landmarks[0].landmark
+
+        # ==== CALCULAR EAR ====
+        EAR_left = eye_aspect_ratio(landmarks, LEFT_EYE_IDX)
+        EAR_right = eye_aspect_ratio(landmarks, RIGHT_EYE_IDX)
+        EAR_value = (EAR_left + EAR_right) / 2.0
+
+        cv2.putText(image, f"EAR: {EAR_value:.3f}", (10, 80),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+
         cx, cy = landmarks[1].x, landmarks[1].y
         if left_eye_idx < len(landmarks) and right_eye_idx < len(landmarks):
             scale = euclidean(landmarks[left_eye_idx], landmarks[right_eye_idx])
@@ -206,12 +218,6 @@ while cap.isOpened():
                 cv2.circle(image, (px, py), 2, (0, 255, 0), -1)
             else:
                 keypoints.extend([0.0, 0.0])
-
-        # === EAR ===
-        ear = calculate_ear(landmarks, LEFT_EYE)
-        cv2.putText(image, f"EAR: {ear:.2f}", (10, 80),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.1, (0, 0, 255), 2)
-
     else:
         keypoints = [0.0, 0.0] * len(all_landmark_indices)
 
@@ -220,69 +226,32 @@ while cap.isOpened():
     if len(window) == WINDOW_SIZE:
         x_input = np.array([window], dtype=np.float32)
         prediction = session.run(None, {input_name: x_input})[0][0]
-        predicted_class = int(np.argmax(prediction)) if prediction.shape[-1] > 1 else int(prediction > 0.5)
+
+        if prediction.shape[-1] > 1:
+            predicted_class = int(np.argmax(prediction))
+            confidence = float(np.max(prediction))  # pega maior probabilidade
+        else:
+            predicted_class = int(prediction > 0.5)
+            confidence = float(prediction if predicted_class == 1 else 1 - prediction)
+
         label_str = ["alerta", "bocejo", "microsleep"][predicted_class]
 
         if label_str != current_label:
             if label_str in ["bocejo", "microsleep"]:
                 print(f"[LOG] Label detectada: {label_str}")
             current_label = label_str
-
-        now = time.time()
-
-        # --- MICROSLEEP ---
-        if label_str == "microsleep":
-            start_microsleep_beep()
-            stop_yawn_beep()
-        else:
-            stop_microsleep_beep()
-
-        # --- BOCEJO ---
-        if label_str == "bocejo":
-            if not yawn_hold_until_release:
-                if yawn_start is None:
-                    yawn_start = now
-                elif (now - yawn_start) >= YAWN_CONFIRM_SECONDS:
-                    yawn_confirms.append(now)
-                    yawn_hold_until_release = True
-                    yawn_start = None
-                    print("[EVENTO] Bocejo confirmado (>=4s)")
-        else:
-            yawn_start = None
-            yawn_hold_until_release = False
-
-        while yawn_confirms and (now - yawn_confirms[0]) > YAWN_WINDOW_SECONDS:
-            yawn_confirms.popleft()
-
-        if len(yawn_confirms) >= 2:
-            prev, last = yawn_confirms[-2], yawn_confirms[-1]
-            if prev > last_yawn_alert_time and last > last_yawn_alert_time:
-                if (last - prev) <= YAWN_WINDOW_SECONDS:
-                    if not microsleep_playing:
-                        start_yawn_beep()
-                    last_yawn_alert_time = last
     else:
         label_str = "Carregando..."
+        confidence = 0.0
 
-    cv2.putText(image, f"Estado: {label_str}", (10, 40),
+    cv2.putText(image, f"Estado: {label_str} ({confidence:.2f})", (10, 40),
                 cv2.FONT_HERSHEY_SIMPLEX, 1.1, (0, 255, 255), 2)
 
-    cv2.imshow("Webcam - Microsleep + Bocejo (2 beeps)", image)
-
-    # === Atualizar gráfico EAR ===
-    ear_values.append(ear)
-    if len(ear_values) > 100:
-        ear_values.pop(0)
-
-    line.set_xdata(range(len(ear_values)))
-    line.set_ydata(ear_values)
-    ax.set_xlim(0, len(ear_values))
-    plt.pause(0.01)
+    cv2.imshow("Webcam - Microsleep + Bocejo + EAR", image)
 
     if cv2.waitKey(1) & 0xFF == 27:
         break
 
-# Encerramento
 stop_microsleep_beep()
 stop_yawn_beep()
 cap.release()
